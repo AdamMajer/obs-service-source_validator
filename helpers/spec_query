@@ -140,8 +140,7 @@ sub parse {
 
 sub print_moveassets {
   my ($descr) = @_;
-  print "@{$descr->{'moveassets'} || []} ";
-  print "\n";
+  print "$_\n" for @{$descr->{'moveassets'} || []};
 }
 
 sub print_subpacks {
@@ -152,8 +151,7 @@ sub print_subpacks {
 
 sub print_dirassets {
   my ($descr) = @_;
-  print "@{$descr->{'dirassets'}} " if @{$descr->{'dirassets'}};
-  print "\n";
+  print "$_\n" for @{$descr->{'dirassets'} || []};
 }
 
 sub print_sources {

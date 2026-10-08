@@ -51,7 +51,7 @@ cleanup_and_exit () {
 #
 warn_on_unmentioned_files () {
   grep -q -F -a -x -- $1 $TMPDIR/sources || \
-  grep -q -F -a -x -- $1 $TMPDIR/dirassets || \
+  grep -q -E -a -x -- ^$1\$ $TMPDIR/dirassets || \
   grep -q -E -- "/$1$" $TMPDIR/moveassets || \
   echo "(W) Attention, \"$1\" is not mentioned in spec files as source or patch."
 }
@@ -210,6 +210,9 @@ check_tracked()
     if ! test -f "$DIR_TO_CHECK/$file"; then
         if test -f "$DIR_TO_CHECK/${file/\.tar*/}.obscpio"; then
             # assume it will generated on builtime based of the archive
+            return 0
+        fi
+        if test -d "$DIR_TO_CHECK/${file/\.tar*/}" && grep -qE ${file/\.tar*/}\$ $TMPDIR/dirassets; then
             return 0
         fi
         if obscpio_file_list | grep -qFx "$file"; then
