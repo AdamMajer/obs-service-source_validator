@@ -50,9 +50,9 @@ cleanup_and_exit () {
 # display a warning if the file is not in the spec file sources
 #
 warn_on_unmentioned_files () {
-  grep -q -F -a -x -- $1 $TMPDIR/sources || \
-  grep -q -E -a -x -- ^$1\$ $TMPDIR/dirassets || \
-  grep -q -E -- "/$1$" $TMPDIR/moveassets || \
+  grep -q -F -a -x -- "$1" "$TMPDIR/sources" || \
+  grep -q -F -a -x -- "$1" "$TMPDIR/dirassets" || \
+  grep -q -E -- "/$1$" "$TMPDIR/moveassets" || \
   echo "(W) Attention, \"$1\" is not mentioned in spec files as source or patch."
 }
 
@@ -178,10 +178,10 @@ check_tracked()
     local file=${1##*/}
     local silent=${2}
     if test "$OSC_MODE" = "true" ; then
-        if test -f "$DESTINATIONDIR/$file" && ! grep -qsFx "$file" "$DOTOSCDIR/_to_be_deleted"; then
+        if test -e "$DESTINATIONDIR/$file" && ! grep -qsFx "$file" "$DOTOSCDIR/_to_be_deleted"; then
             return 0
         fi
-        if test -f "$DESTINATIONDIR/${file/\.tar*/}.obscpio"; then
+        if test -f "$DESTINATIONDIR/${file%.tar*}.obscpio"; then
             # assume it will generated on builtime based of the archive
             return 0
         fi
@@ -196,23 +196,43 @@ check_tracked()
     fi
 
     # working in local clone. osc may or may be not used.
-    if test -x "$(type -p git)" && test -d "$DIR_TO_CHECK/.git" && test -f "$DIR_TO_CHECK/.git/config" && test -f "$DIR_TO_CHECK/$file"; then
+    if test -x "$(type -p git)" && test -d "$DIR_TO_CHECK/.git" && test -f "$DIR_TO_CHECK/.git/config" && test -e "$DIR_TO_CHECK/$file"; then
         if safe_git "$DIR_TO_CHECK" check-ignore -q "$file"; then
             # temporary data, marked intentionally by the packager, handle it as untracked
             return 1
         fi
-        if safe_git "$DIR_TO_CHECK" ls-files --error-unmatch "$file" > /dev/null; then
+        if safe_git "$DIR_TO_CHECK" ls-files --error-unmatch "$file" > /dev/null 2>&1; then
             return 0
         fi
         return 1
     fi
 
-    if ! test -f "$DIR_TO_CHECK/$file"; then
-        if test -f "$DIR_TO_CHECK/${file/\.tar*/}.obscpio"; then
+    if ! test -e "$DIR_TO_CHECK/$file"; then
+        if test -f "$DIR_TO_CHECK/${file%.tar*}.obscpio"; then
             # assume it will generated on builtime based of the archive
             return 0
         fi
-        if test -d "$DIR_TO_CHECK/${file/\.tar*/}" && grep -qE ${file/\.tar*/}\$ $TMPDIR/dirassets; then
+        local dir=""
+        if [ -s "$TMPDIR/moveassets" ]; then
+            while IFS=/ read -r d a; do
+                if [ "$a" = "$file" ]; then
+                    dir="$d"
+                    break
+                fi
+            done < "$TMPDIR/moveassets"
+        fi
+        [ -z "$dir" ] && dir="${file%.tar*}"
+
+        if test -d "$DIR_TO_CHECK/$dir" && grep -q -F -a -x -- "$dir" "$TMPDIR/dirassets"; then
+            if test -x "$(type -p git)" && test -d "$DIR_TO_CHECK/.git" && test -f "$DIR_TO_CHECK/.git/config"; then
+                if safe_git "$DIR_TO_CHECK" check-ignore -q "$dir"; then
+                    return 1
+                fi
+                if safe_git "$DIR_TO_CHECK" ls-files --error-unmatch "$dir" > /dev/null 2>&1; then
+                    return 0
+                fi
+                return 1
+            fi
             return 0
         fi
         if obscpio_file_list | grep -qFx "$file"; then
